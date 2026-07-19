@@ -7,22 +7,14 @@ import { DEFAULT_ENGINEER_ID } from "@/lib/repoquest/services/runtime-service";
 export const dynamic = "force-dynamic";
 
 const QuerySchema = z.object({
-  mode: z.enum(["demo", "live"]).default("demo"),
+  mode: z.enum(["live"]).default("live"),
   repositoryId: z.string().min(1).optional(),
 });
 
 export async function GET(request: Request) {
   try {
     const query = QuerySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
-    if (query.mode === "demo") {
-      const runtime = createRepoQuestRuntime({
-        mode: "demo",
-        engineerId: DEFAULT_ENGINEER_ID,
-        repositoryId: "pulseboard",
-      });
-      return NextResponse.json({ mode: runtime.mode, capabilities: runtime.capabilities, features: runtime.features });
-    }
-    if (!query.repositoryId) throw new Error("repositoryId is required for live capabilities.");
+    if (!query.repositoryId) throw new Error("repositoryId is required.");
     const descriptor = await getRegisteredRuntime(query.repositoryId);
     if (!descriptor?.repositoryRoot) throw new Error("Live runtime is unavailable.");
     const runtime = createRepoQuestRuntime({

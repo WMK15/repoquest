@@ -12,7 +12,7 @@ const MissionSchema = z.object({
   nodeIds: z.array(z.string().min(1)),
   allowedFiles: z.array(z.string().min(1)),
   relevantDocuments: z.array(z.string().min(1)),
-  recommendedGuidanceLevel: z.enum(["demonstrated", "guided", "assisted", "independent"]),
+  recommendedGuidanceLevel: z.enum(["guided", "assisted", "independent"]),
   reason: z.string().min(1),
 });
 

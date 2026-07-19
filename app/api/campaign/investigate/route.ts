@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { buildDeterministicInvestigation } from "@/lib/campaign/deterministic-campaign";
 import { getSession, saveSession } from "@/lib/campaign/session-store";
 import { aiAvailable, investigateWithAI } from "@/lib/agent/client";
 import { readKnowledgeArchive } from "@/lib/repository/read-markdown";
-import { runDemoRepoTests } from "@/lib/repository/run-tests";
 import { resolveContributionService } from "@/lib/repoquest/services/runtime-service";
 
 export const dynamic = "force-dynamic";
@@ -29,34 +27,37 @@ export async function POST(request: Request) {
       );
     }
 
-    // Deterministic events drive the animation; AI enriches the conclusion.
-    const investigation = buildDeterministicInvestigation();
-
-    if (!body.deterministic && aiAvailable()) {
-      try {
-        const [docs, testRun] = await Promise.all([
-          readKnowledgeArchive(),
-          runDemoRepoTests(),
-        ]);
-        const narrative = await investigateWithAI(
-          docs,
-          testRun.output,
-          body.suspectNodeId ?? "access-gate"
-        );
-        investigation.rootCause = narrative.rootCause;
-        investigation.proposedFix = narrative.smallestSafeCorrection;
-        investigation.aiGenerated = true;
-        const complete = investigation.events.find(
-          (e) => e.type === "investigation_complete"
-        );
-        if (complete && complete.type === "investigation_complete") {
-          complete.rootCause = narrative.rootCause;
-          complete.proposedFix = narrative.smallestSafeCorrection;
-        }
-      } catch (error) {
-        console.warn("AI investigation failed; using deterministic result:", error);
-      }
+    if (!aiAvailable()) {
+      return NextResponse.json(
+        { error: "Investigation requires an OpenAI API key." },
+        { status: 400 }
+      );
     }
+
+    const [docs, testRun] = await Promise.all([
+      readKnowledgeArchive(session.workspaceRoot!),
+    ]);
+
+    const narrative = await investigateWithAI(
+      docs,
+      testRun?.output ?? "",
+      body.suspectNodeId ?? session.campaign.mission.corruptedNodeId
+    );
+
+    const investigation = {
+      events: [
+        {
+          type: "investigation_complete" as const,
+          rootCause: narrative.rootCause,
+          proposedFix: narrative.smallestSafeCorrection,
+        },
+      ],
+      rootCause: narrative.rootCause,
+      proposedFix: narrative.smallestSafeCorrection,
+      diff: { before: "", after: "", file: "", line: 0 },
+      testCommand: "",
+      aiGenerated: true,
+    };
 
     session.stage = "investigating";
     session.selectedSuspectNodeId = body.suspectNodeId;

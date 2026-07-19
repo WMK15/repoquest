@@ -127,12 +127,9 @@ export interface CampaignSession {
   investigation?: InvestigationResult;
   aiGenerated: boolean;
   startedAt: number;
-  /** Set for cloned external repositories; docs are read from here. */
   workspaceRoot?: string;
-  /** Shared event-ledger session used by demo and live contribution flows. */
   contributionSessionId?: string;
-  /** Server-resolved runtime mode; clients cannot select filesystem access. */
-  runtimeMode?: "demo" | "live";
+  runtimeMode?: "live";
   repositoryId?: string;
 }
 

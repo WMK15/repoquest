@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { getSession } from "@/lib/campaign/session-store";
 import { aiAvailable } from "@/lib/agent/client";
-import { DEMO_REPO_ROOT, readRepoFile } from "@/lib/repository/paths";
+import { readRepoFile } from "@/lib/repository/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -34,15 +34,16 @@ export async function POST(request: Request) {
     if (!aiAvailable()) {
       return NextResponse.json({
         reply:
-          "Codex chat needs an OpenAI API key. Everything else works without one — set OPENAI_API_KEY in .env.local to enable questions.",
+          "Codex chat needs an OpenAI API key. Set OPENAI_API_KEY in .env.local to enable questions.",
       });
     }
 
     const { campaign } = session;
-    const root = session.workspaceRoot ?? DEMO_REPO_ROOT;
+    const root = session.workspaceRoot;
+    if (!root) {
+      return NextResponse.json({ error: "No workspace available for this session." }, { status: 400 });
+    }
 
-    // Grounding context: the campaign map plus docs and source files, read
-    // fresh from disk. The model gets evidence, never filesystem access.
     const docsContext = campaign.knowledgeArchive
       .slice(0, 5)
       .map((doc) => {

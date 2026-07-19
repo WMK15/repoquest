@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { buildDeterministicCampaign } from "@/lib/campaign/deterministic-campaign";
 import { buildHeuristicExternalCampaign } from "@/lib/campaign/external-campaign";
 import { saveSession } from "@/lib/campaign/session-store";
 import type { CampaignSession, RepositoryCampaign } from "@/lib/campaign/types";
-import { aiAvailable, generateCampaignWithAI } from "@/lib/agent/client";
+import { aiAvailable } from "@/lib/agent/client";
 import { runMappingPipeline } from "@/lib/agent/subagents";
-import { assertDemoRepoExists } from "@/lib/repository/paths";
 import { readKnowledgeArchive } from "@/lib/repository/read-markdown";
-import { runDemoRepoTests } from "@/lib/repository/run-tests";
 import { scanRepo } from "@/lib/repository/scan-files";
 import { cloneGitHubRepo, openLocalRepo } from "@/lib/repository/workspace";
 import { createRepoQuestRuntime } from "@/lib/repoquest/adapters/create-runtime";
@@ -32,10 +29,13 @@ export async function POST(request: Request) {
   try {
     const body = BodySchema.parse(await request.json().catch(() => ({})));
 
-    if (body?.repoUrl?.trim()) {
-      return await startExternalCampaign(body.repoUrl.trim(), body.deterministic ?? false);
+    if (!body?.repoUrl?.trim()) {
+      return NextResponse.json(
+        { error: "A repository URL or local path is required." },
+        { status: 400 }
+      );
     }
-    return await startPulseBoardCampaign(body?.deterministic ?? false);
+    return await startExternalCampaign(body.repoUrl.trim(), body.deterministic ?? false);
   } catch (error) {
     console.error("campaign/start failed:", error);
     return NextResponse.json(
@@ -45,85 +45,6 @@ export async function POST(request: Request) {
   }
 }
 
-async function startPulseBoardCampaign(forceDeterministic: boolean) {
-  assertDemoRepoExists();
-
-  const [scan, docs, baseline] = await Promise.all([
-    scanRepo(),
-    readKnowledgeArchive(),
-    runDemoRepoTests(),
-  ]);
-
-  let campaign: RepositoryCampaign;
-  let aiGenerated = false;
-  if (!forceDeterministic && aiAvailable()) {
-    try {
-      campaign = await generateCampaignWithAI(docs, baseline.output);
-      // Pin the demo-critical pieces: positions, statuses, labels, and the
-      // mission identity stay deterministic; AI enriches descriptions,
-      // insights, and the narrative around them.
-      const deterministic = buildDeterministicCampaign();
-      campaign.nodes = campaign.nodes.map((node) => {
-        const fixed = deterministic.nodes.find((n) => n.id === node.id);
-        return fixed
-          ? {
-              ...node,
-              label: fixed.label,
-              gameLabel: fixed.gameLabel,
-              position: fixed.position,
-              status: fixed.status,
-              sourceFiles: fixed.sourceFiles,
-            }
-          : node;
-      });
-      campaign.edges = deterministic.edges;
-      campaign.mission = {
-        ...campaign.mission,
-        id: deterministic.mission.id,
-        title: deterministic.mission.title,
-        suspectNodeIds: deterministic.mission.suspectNodeIds,
-        corruptedNodeId: deterministic.mission.corruptedNodeId,
-      };
-      aiGenerated = true;
-    } catch (error) {
-      console.warn("AI campaign generation failed; using fallback:", error);
-      campaign = buildDeterministicCampaign();
-    }
-  } else {
-    campaign = buildDeterministicCampaign();
-  }
-
-  const runtime = createRepoQuestRuntime({
-    mode: "demo",
-    engineerId: DEFAULT_ENGINEER_ID,
-    repositoryId: "pulseboard",
-  });
-  await registerRuntime({
-    repositoryId: "pulseboard",
-    mode: "demo",
-    repositoryName: campaign.repositoryName,
-  });
-  const contributionMission = missionFromCampaign(campaign);
-  const contribution = await new DefaultContributionService(runtime).startMission({
-    mission: contributionMission,
-  });
-
-  return respond(campaign, aiGenerated, {
-    sourceFiles: scan.sourceFiles.length,
-    markdownFiles: scan.markdownFiles.length,
-    baselineTest: {
-      command: baseline.command,
-      success: baseline.success,
-      summary: baseline.summary,
-    },
-  }, contribution.session.id, contributionMission, contribution);
-}
-
-/**
- * External repositories stream NDJSON: one grounded mapping event per line
- * while the sub-agent pipeline runs, then a final `complete` line carrying
- * the campaign. The boot screen renders the events live.
- */
 async function startExternalCampaign(repoUrl: string, forceDeterministic: boolean) {
   const encoder = new TextEncoder();
 
@@ -138,8 +59,6 @@ async function startExternalCampaign(repoUrl: string, forceDeterministic: boolea
           agent: "system",
           message: isLocal ? `Mounting ${repoUrl}…` : `Cloning ${repoUrl}…`,
         });
-        // A leading / or ~ (or ./) means a repository on this machine;
-        // anything else is a GitHub URL / owner-repo shorthand.
         const workspace = isLocal
           ? openLocalRepo(repoUrl.replace(/^~/, process.env.HOME ?? "~"))
           : await cloneGitHubRepo(repoUrl);
@@ -212,37 +131,5 @@ async function startExternalCampaign(repoUrl: string, forceDeterministic: boolea
 
   return new Response(stream, {
     headers: { "Content-Type": "application/x-ndjson", "Cache-Control": "no-store" },
-  });
-}
-
-function respond(
-  campaign: RepositoryCampaign,
-  aiGenerated: boolean,
-  extra: Record<string, unknown>,
-  contributionSessionId?: string,
-  contributionMission?: ReturnType<typeof missionFromCampaign>,
-  contribution?: unknown,
-  workspaceRoot?: string
-) {
-  const session: CampaignSession = {
-    id: crypto.randomUUID(),
-    campaign,
-    stage: "mapped",
-    aiGenerated,
-    startedAt: Date.now(),
-    workspaceRoot,
-    contributionSessionId,
-    runtimeMode: "demo",
-    repositoryId: "pulseboard",
-  };
-  saveSession(session);
-
-  return NextResponse.json({
-    campaignId: session.id,
-    campaign,
-    aiGenerated,
-    contribution,
-    contributionMission,
-    ...extra,
   });
 }

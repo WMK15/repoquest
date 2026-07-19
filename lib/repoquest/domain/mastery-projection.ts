@@ -18,7 +18,6 @@ const DIMENSIONS: MasteryDimension[] = [
 ];
 
 const GUIDANCE_RANK: Record<GuidanceLevel, number> = {
-  demonstrated: 0,
   guided: 1,
   assisted: 2,
   independent: 3,
@@ -142,7 +141,7 @@ export function projectNodeMastery(input: {
           const lowerGuidanceThanBefore = node.verifiedGuidanceRanks.some(
             (previousRank) => rank > previousRank
           );
-          const verifiedLevel = event.guidanceLevel === "demonstrated" ? 1 : 2;
+          const verifiedLevel = 2;
           node.dimensions.implementation = Math.max(
             node.dimensions.implementation,
             lowerGuidanceThanBefore ? 3 : verifiedLevel

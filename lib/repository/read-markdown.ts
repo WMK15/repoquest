@@ -1,6 +1,6 @@
 import matter from "gray-matter";
 import path from "node:path";
-import { DEMO_REPO_ROOT, readRepoFile } from "./paths";
+import { readRepoFile } from "./paths";
 import { scanRepo } from "./scan-files";
 
 const MAX_DOC_CHARS = 12_000;
@@ -53,9 +53,8 @@ function extractHeadings(markdown: string): string[] {
   return [...markdown.matchAll(/^#{1,3}\s+(.+)$/gm)].map((m) => m[1].trim());
 }
 
-/** Read, prioritise, and truncate every Markdown document in the repo. */
 export async function readKnowledgeArchive(
-  root: string = DEMO_REPO_ROOT
+  root: string
 ): Promise<MarkdownDocument[]> {
   const { markdownFiles } = await scanRepo(root);
 
@@ -83,7 +82,6 @@ export async function readKnowledgeArchive(
 
   docs.sort((a, b) => b.priority - a.priority);
 
-  // Enforce the combined context budget in priority order.
   let budget = MAX_TOTAL_CHARS;
   return docs.map((doc) => {
     const allowed = Math.max(0, Math.min(doc.content.length, budget));

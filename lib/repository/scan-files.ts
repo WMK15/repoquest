@@ -1,5 +1,4 @@
 import fg from "fast-glob";
-import { DEMO_REPO_ROOT } from "./paths";
 
 const IGNORE = [
   "**/.git/**",
@@ -21,8 +20,7 @@ export interface RepoScan {
   totalFiles: number;
 }
 
-/** Enumerate source and Markdown files inside a repository root. */
-export async function scanRepo(root: string = DEMO_REPO_ROOT): Promise<RepoScan> {
+export async function scanRepo(root: string): Promise<RepoScan> {
   const all = await fg(["**/*"], {
     cwd: root,
     ignore: IGNORE,

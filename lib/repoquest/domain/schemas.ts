@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const RepoQuestModeSchema = z.enum(["demo", "live"]);
+export const RepoQuestModeSchema = z.enum(["live"]);
 
 export const ContributionStageSchema = z.enum([
   "understanding",
@@ -15,7 +15,6 @@ export const ContributionStageSchema = z.enum([
 ]);
 
 export const GuidanceLevelSchema = z.enum([
-  "demonstrated",
   "guided",
   "assisted",
   "independent",

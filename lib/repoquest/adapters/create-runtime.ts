@@ -4,9 +4,6 @@ import { aiAvailable } from "@/lib/agent/client";
 import type { RepoQuestMode } from "../domain/types";
 import { getRepoQuestMemoryStore } from "../memory/file-memory-store";
 import type { RepoQuestMemoryStore } from "../memory/memory-store";
-import { DemoExecutionAdapter } from "./demo/demo-execution-adapter";
-import { DemoRepositoryAdapter } from "./demo/demo-repository-adapter";
-import { DeterministicAgentAdapter } from "./demo/deterministic-agent-adapter";
 import { LiveExecutionAdapter } from "./live/live-execution-adapter";
 import { LocalRepositoryAdapter } from "./live/local-repository-adapter";
 import { OpenAIAgentAdapter } from "./live/openai-agent-adapter";
@@ -39,21 +36,6 @@ export interface CreateRuntimeInput {
   repositoryName?: string;
 }
 
-function demoFeatures(): FeatureStatus {
-  return {
-    "repository-map": "supported",
-    "markdown-archive": "supported",
-    "guided-investigation": "supported",
-    "implementation-plan": "supported",
-    "patch-preview": "supported",
-    "human-approval": "supported",
-    "real-test-verification": "supported",
-    "mastery-evidence": "supported",
-    "persistent-memory": "supported",
-    "next-contribution": "supported",
-  };
-}
-
 function liveFeatures(): FeatureStatus {
   return {
     "repository-map": "supported",
@@ -70,28 +52,6 @@ function liveFeatures(): FeatureStatus {
 }
 
 export function createRepoQuestRuntime(input: CreateRuntimeInput): RepoQuestRuntime {
-  if (input.mode === "demo") {
-    return {
-      mode: "demo",
-      engineerId: input.engineerId,
-      repositoryId: "pulseboard",
-      repository: new DemoRepositoryAdapter(),
-      agent: new DeterministicAgentAdapter(),
-      execution: new DemoExecutionAdapter(),
-      memory: getRepoQuestMemoryStore(),
-      capabilities: RuntimeCapabilitiesSchema.parse({
-        canReadRepository: true,
-        canWriteRepository: true,
-        canRunTests: true,
-        canStreamAgentActivity: true,
-        canPersistMemory: true,
-        canCreateBranches: false,
-        canGenerateLiveRecommendations: false,
-      }),
-      features: demoFeatures(),
-    };
-  }
-
   if (!input.repositoryRoot || !input.repositoryName) {
     throw new Error("Live runtime creation requires a server-resolved repository workspace.");
   }
