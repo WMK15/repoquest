@@ -11,8 +11,8 @@ verification.
 
 <!-- Maintenance -->
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg)](https://github.com/WMK15/repoquest/graphs/commit-activity)
-[![Last commit](https://img.shields.io/github/last-commit/WMK15/repoquest)](https://github.com/WMK15/repoquest/commits/main)
-[![Issues](https://img.shields.io/github/issues/WMK15/repoquest)](https://github.com/WMK15/repoquest/issues)
+[![Last commit](https://img.shields.io/github/last-commit/WMK15/repoquest/main?style=flat)](https://github.com/WMK15/repoquest/commits/main)
+[![Issues](https://img.shields.io/github/issues-raw/WMK15/repoquest?style=flat)](https://github.com/WMK15/repoquest/issues)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
@@ -20,10 +20,7 @@ verification.
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
-![GSAP](https://img.shields.io/badge/GSAP-88CE02?style=flat&logo=greensock&logoColor=black)
 ![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=flat&logo=openai&logoColor=white)
-![pnpm](https://img.shields.io/badge/pnpm-F69220?style=flat&logo=pnpm&logoColor=white)
 
 ---
 
