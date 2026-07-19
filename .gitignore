@@ -2,3 +2,6 @@ node_modules
 .next
 *.tsbuildinfo
 .env.local
+
+# cloned repositories mapped by the app
+workspaces/

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import type {
+  FixResult,
   InvestigationEvent,
   InvestigationResult,
   NodeStatus,
@@ -88,7 +89,7 @@ export function CampaignShell() {
   const [investigation, setInvestigation] = useState<InvestigationResult | null>(null);
   const [feed, setFeed] = useState<InvestigationEvent[]>([]);
   const [scanningNodeId, setScanningNodeId] = useState<string | null>(null);
-  const [fixResult, setFixResult] = useState<unknown>(null);
+  const [fixResult] = useState<(FixResult & { testSummary?: string }) | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
   const [contribution, setContribution] = useState<ContributionUpdate | null>(null);
   const [contributionMission, setContributionMission] = useState<ContributionMission | null>(null);
@@ -430,7 +431,7 @@ export function CampaignShell() {
         </div>
       )}
 
-      {stage === "complete" && (
+      {stage === "complete" && fixResult && (
         <CompletionScreen
           fixResult={fixResult}
           durationSeconds={durationSeconds}

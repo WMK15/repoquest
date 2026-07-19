@@ -34,13 +34,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const [docs, testRun] = await Promise.all([
-      readKnowledgeArchive(session.workspaceRoot!),
-    ]);
+    if (!session.workspaceRoot) {
+      return NextResponse.json({ error: "No workspace for this campaign." }, { status: 400 });
+    }
+    const docs = await readKnowledgeArchive(session.workspaceRoot);
 
     const narrative = await investigateWithAI(
       docs,
-      testRun?.output ?? "",
+      "",
       body.suspectNodeId ?? session.campaign.mission.corruptedNodeId
     );
 
