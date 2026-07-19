@@ -121,7 +121,7 @@ app/                    Next.js App Router pages + API routes
   api/campaign/         start (map a repo), investigate, reset
   api/contributions/    staged contribution flow (plan/patch/verify/mastery)
   api/chat/             grounded repository Q&A
-components/   campaign shell, atlas, panels, chat, workspace
+components/             campaign shell, atlas, panels, chat, workspace
 lib/campaign/           campaign types, Zod schemas, session store
 lib/agent/              OpenAI clients + Scout/Cartographer/Archivist pipeline
 lib/repository/         scanning, Markdown reading, cloning, path containment
