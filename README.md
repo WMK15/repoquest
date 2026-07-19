@@ -9,11 +9,11 @@ codebase into a short, evidence-driven campaign: explore regions, read the
 knowledge archive, trace flows, and make a first bounded contribution with
 verification.
 
-<!-- Tech stack -->
-![Next.js](https://img.shields.io/badge/Next.js-16.2-000000?style=flat&logo=nextdotjs&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI_SDK-6.48-412991?style=flat&logo=openai&logoColor=white)
-![pnpm](https://img.shields.io/badge/pnpm-10-F69220?style=flat&logo=pnpm&logoColor=white)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+<!-- Tech stack (self-hosted badges — no external service) -->
+![Next.js 16.2](public/badges/nextjs.svg)
+![OpenAI SDK 6.48](public/badges/openai.svg)
+![pnpm 10](public/badges/pnpm.svg)
+[![License: AGPL v3](public/badges/license.svg)](LICENSE)
 
 ---
 
