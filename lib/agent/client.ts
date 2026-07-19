@@ -46,7 +46,7 @@ doc tells the engineer to do, avoid, configure, or verify for that region.
 Avoid generic region names and descriptions. Bad: "UI components for the app."
 Good: "The onboarding shell and map interactions live here; edit this when
 changing the campaign flow, node drawer, or evidence panels. Start with
-components/repoquest/campaign-shell.tsx because it owns stage transitions and
+components/campaign-shell.tsx because it owns stage transitions and
 passes state into the map."
 
 Return only valid structured JSON matching the supplied schema.`;

@@ -28,7 +28,7 @@ deterministic structural fallback instead of the sub-agent pipeline.
 | Path | What lives there |
 | --- | --- |
 | `app/` | Next.js App Router pages and API routes |
-| `components/repoquest/` | All UI (campaign shell, map, panels, chat) |
+| `components/` | All UI (campaign shell, map, panels, chat) |
 | `lib/campaign/` | Campaign types, Zod schemas, session store |
 | `lib/agent/` | OpenAI clients and the Scout/Cartographer/Archivist pipeline |
 | `lib/repository/` | Repo scanning, Markdown reading, path containment, cloning |
