@@ -15,6 +15,12 @@ verification.
 ![pnpm 10](public/badges/pnpm.svg)
 [![License: AGPL v3](public/badges/license.svg)](LICENSE)
 
+**[▶ Watch the demo](https://giant-egret-456.convex.cloud/api/storage/f052ba2f-cbd2-4ca4-8ac3-98199b614c92)**
+
+> RepoQuest began as a submission to the
+> [Codex Community Hackathon (London)](https://luma.com/codex-hack-ldn?tk=Kxe1K7)
+> and has since grown into an open-source project.
+
 ---
 
 ## Why
