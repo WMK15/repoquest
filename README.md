@@ -36,24 +36,29 @@ authority.
 
 - **Map any repository** — paste `github.com/owner/repo` (shallow-cloned
   locally) or a path to a repo on your machine.
-- **Sub-agent mapping crew** — three specialist agents work in sequence and
-  stream their real activity live: **Scout** reads the Markdown knowledge
-  archive, **Cartographer** surveys the file tree and representative source to
-  draw regions and dependency edges, **Archivist** links documents to regions
-  and flags contradictions between docs and code.
-- **Interactive system atlas** — a React Flow map of architecture regions with
-  status, source files, doc links, and a details drawer per region.
+- **Detector-backed mapping** — bounded analyzers inventory JavaScript,
+  TypeScript, Next.js, Tailwind/shadcn, SQL and common ORMs, Docker, Terraform,
+  GitHub Actions, observability, and external-service signals. AI improves the
+  prose without replacing the grounded topology.
+- **Monorepo-aware atlas** — npm, pnpm, Yarn, and Bun workspaces are mapped with
+  Turborepo/Nx tasks, package capabilities, and internal dependency edges.
+- **Claim-level evidence** — cards explain responsibilities and runtime roles;
+  paths, line ranges, detector claims, and excerpts stay behind `See sources`.
+- **Coverage and walkthroughs** — RepoQuest reports what it found, did not
+  detect, could not support, or could only partially analyze, then generates an
+  ordered tour through applications, packages, data, infrastructure, and CI.
 - **Exploration campaign** — regions start fogged; explore them in order,
   read their briefings and evidence, and earn XP as the map lights up.
-- **Contribution workspace** — a staged first contribution: plan → approve →
-  preview a bounded patch → apply → verify → record mastery. The server, not
-  the model, controls what can be touched.
+- **Contribution workspace** — choose an evidence-backed candidate, then plan →
+  approve → preview a bounded patch → apply → run every approved verification
+  command → record mastery. The server, not the model, controls what can be
+  touched.
 - **Knowledge archive** — every Markdown document classified, summarised, and
   readable in-app.
 - **Ask Codex** — a floating chat grounded in the mapped architecture and the
   actual document contents of the repository you're exploring.
-- **Graceful degradation** — no API key? Everything still works with a
-  deterministic structural map instead of the AI crew.
+- **Graceful degradation** — no API key? Deterministic mapping and exploration
+  still work; AI-dependent planning and patch generation are clearly disabled.
 
 ## Quick start
 
@@ -84,24 +89,25 @@ Check `GET /api/health` to confirm — `"aiConfigured": true`.
 
 ```
 Repository (GitHub URL or local path)
-        │  shallow clone / mount
+        │  shallow clone / isolated Git worktree
         ▼
-Scan: file tree + prioritised Markdown (README, AGENTS.md, docs/**, ADRs…)
+Inventory: bounded text, manifests, schemas, infrastructure, CI, and docs
         │
         ▼
-Sub-agent pipeline (streamed as NDJSON to the boot screen)
-  Scout ─► Cartographer ─► Archivist
+Deterministic detector pipeline (streamed as NDJSON)
+  workspaces · JS/TS · Next.js · UI · data · Docker · Terraform · CI · ops
         │
         ▼
 RepositoryCampaign (Zod-validated)
-  regions · edges · knowledge archive · contradictions · mission
+  components · relationships · evidence · coverage · walkthrough · candidates
         │
         ▼
-UI: system atlas · exploration game · contribution workspace · chat
+UI: atlas · hidden sources · guided exploration · contribution · chat
 ```
 
-Every AI response is parsed through Zod schemas; anything malformed falls back
-to a deterministic campaign built from the directory structure alone.
+Detector output and the final campaign are parsed through Zod schemas and
+reference-validated. Optional AI output can only enhance summaries; malformed
+enhancements fall back to the deterministic map.
 
 ### Safety model
 
@@ -113,6 +119,10 @@ RepoQuest is designed to be safe to point at real repositories:
   applied by server-controlled code only after explicit approval.
 - Verification states in the UI reflect real output, never fabricated success.
 - Cloned repositories live in `workspaces/` (gitignored, disposable).
+- Local repositories must have at least one commit and a completely clean
+  working tree. RepoQuest creates a dedicated `repoquest/*` branch in an
+  isolated Git worktree under `workspaces/`; contribution changes do not touch
+  the source checkout.
 
 ## Project structure
 
@@ -123,7 +133,8 @@ app/                    Next.js App Router pages + API routes
   api/chat/             grounded repository Q&A
 components/             campaign shell, atlas, panels, chat, workspace
 lib/campaign/           campaign types, Zod schemas, session store
-lib/agent/              OpenAI clients + Scout/Cartographer/Archivist pipeline
+lib/analysis/           inventory, evidence contracts, detectors, orchestration
+lib/agent/              optional OpenAI summary and implementation adapters
 lib/repository/         scanning, Markdown reading, cloning, path containment
 lib/repoquest/          contribution domain: adapters, services, memory
 ```

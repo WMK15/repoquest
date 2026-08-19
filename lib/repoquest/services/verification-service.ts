@@ -30,17 +30,24 @@ export class VerificationService {
       const withinScope = changedFiles.every((file) => session.allowedFiles.includes(file));
       const criteria = session.implementationPlan.acceptanceCriteria.map((criterion) => ({
         ...criterion,
+        passed: false,
+        evidence: "No executable command validates this semantic criterion; explicit manual validation is required.",
+      }));
+      criteria.unshift({
+        id: "changed-files-within-scope",
+        description: "Changed files remain within the approved contribution scope.",
         passed: withinScope,
         evidence: withinScope
-          ? "Reviewed plan and proposed patch evidence; no executable verification command was required."
+          ? "The proposed patch only references approved files."
           : "The proposed patch includes files outside the contribution scope.",
-      }));
+      });
 
       return VerificationResultSchema.parse({
-        command: "Evidence review",
-        passed: withinScope && criteria.every((criterion) => criterion.passed),
-        exitCode: 0,
-        output: "No executable tests were required for this exploration mission.",
+        command: "Manual scope validation",
+        passed: false,
+        exitCode: 1,
+        output:
+          "No executable verification commands were provided. File scope was reviewed, but semantic acceptance criteria still require explicit manual validation.",
         criteria,
         changedFiles,
         diff: await this.runtime.repository.getDiff(),
@@ -62,13 +69,25 @@ export class VerificationService {
     const diff = await this.runtime.repository.getDiff();
     const changedFiles = session.proposedPatch.files.map((file) => file.path);
     const withinScope = changedFiles.every((file) => session.allowedFiles.includes(file));
-    const criteria = session.implementationPlan.acceptanceCriteria.map((criterion) => ({
+    const acceptanceCriteria = session.implementationPlan.acceptanceCriteria.map((criterion) => ({
       ...criterion,
       passed: result.passed && withinScope,
       evidence: result.passed
-        ? `${result.command} exited with ${result.exitCode}.`
-        : result.output.slice(-1_000),
+        ? "All approved verification commands passed and changed files remained in scope."
+        : "One or more approved verification commands failed; review the command evidence.",
     }));
+    const criteria = [
+      ...result.criteria,
+      {
+        id: "changed-files-within-scope",
+        description: "Changed files remain within the approved contribution scope.",
+        passed: withinScope,
+        evidence: withinScope
+          ? "All changed files are in the approved contribution scope."
+          : "The proposed patch includes files outside the contribution scope.",
+      },
+      ...acceptanceCriteria,
+    ];
 
     return VerificationResultSchema.parse({
       ...result,

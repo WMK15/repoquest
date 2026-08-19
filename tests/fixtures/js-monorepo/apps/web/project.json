@@ -1,0 +1,6 @@
+{
+  "name": "web",
+  "targets": {
+    "build": { "executor": "@nx/next:build" }
+  }
+}

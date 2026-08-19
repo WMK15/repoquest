@@ -1,0 +1,3 @@
+CREATE TABLE quests (
+  id INTEGER PRIMARY KEY
+);

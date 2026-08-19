@@ -1,0 +1,13 @@
+{
+  "name": "@fixture/db",
+  "version": "1.0.0",
+  "dependencies": {
+    "@prisma/client": "6.0.0",
+    "drizzle-orm": "0.40.0",
+    "pg": "8.0.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.30.0",
+    "prisma": "6.0.0"
+  }
+}

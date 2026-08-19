@@ -1,7 +1,9 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, Circle, Lock, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Sparkles } from "lucide-react";
 import type { RepositoryCampaign } from "@/lib/campaign/types";
+import { AnalysisCoverage } from "@/components/analysis-coverage";
+import { GuidedWalkthrough } from "@/components/guided-walkthrough";
 
 const XP_PER_REGION = 15;
 
@@ -14,17 +16,11 @@ export function ExplorationPanel({
   exploredIds,
   currentRegionId,
   onFocusRegion,
-  onBeginContribution,
-  contributionAvailable,
-  beginningContribution,
 }: {
   campaign: RepositoryCampaign;
   exploredIds: string[];
   currentRegionId: string | null;
   onFocusRegion: (nodeId: string) => void;
-  onBeginContribution?: () => void;
-  contributionAvailable?: boolean;
-  beginningContribution?: boolean;
 }) {
   const xp = exploredIds.length * XP_PER_REGION;
   const done = exploredIds.length === campaign.nodes.length;
@@ -93,20 +89,25 @@ export function ExplorationPanel({
         {exploredIds.length}/{campaign.nodes.length} regions ·{" "}
         {XP_PER_REGION} XP per region
       </p>
+
+      {campaign.guidedWalkthrough && campaign.guidedWalkthrough.length > 0 && (
+        <GuidedWalkthrough
+          sections={campaign.guidedWalkthrough}
+          nodes={campaign.nodes}
+          exploredIds={exploredIds}
+          onFocusComponent={onFocusRegion}
+        />
+      )}
+
+      {campaign.analysisCoverage && campaign.analysisCoverage.length > 0 && (
+        <AnalysisCoverage
+          coverage={campaign.analysisCoverage}
+          nodes={campaign.nodes}
+          onFocusComponent={onFocusRegion}
+        />
+      )}
       </div>
 
-      {done && onBeginContribution && !contributionAvailable && (
-        <div className="sticky bottom-0 z-10 shrink-0 border-t border-line bg-surface-strong/90 px-5 py-4 backdrop-blur">
-          <button
-            onClick={onBeginContribution}
-            disabled={beginningContribution}
-            className="rq-cta rq-glow-primary flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
-          >
-            {beginningContribution ? "Starting contribution…" : "Begin contribution"}
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-      )}
     </section>
   );
 }

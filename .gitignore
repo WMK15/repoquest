@@ -5,3 +5,6 @@ node_modules
 
 # cloned repositories mapped by the app
 workspaces/
+
+# local RepoQuest sessions, profiles, and runtime registrations
+.repoquest/

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { aiAvailable } from "@/lib/agent/client";
-import { buildHeuristicExternalCampaign } from "@/lib/campaign/external-campaign";
+import { getSession, saveSession } from "@/lib/campaign/session-store";
 import { createRepoQuestRuntime } from "@/lib/repoquest/adapters/create-runtime";
 import { getRegisteredRuntime } from "@/lib/repoquest/adapters/runtime-registry";
 import { DefaultContributionService } from "@/lib/repoquest/services/contribution-service";
@@ -13,36 +12,43 @@ import {
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
-  mode: z.enum(["live"]).default("live"),
-  repositoryId: z.string().min(1).optional(),
-  engineerId: z.string().min(1).default(DEFAULT_ENGINEER_ID),
+  campaignId: z.string().trim().min(1),
+  candidateId: z.string().trim().min(1).optional(),
 });
 
 export async function POST(request: Request) {
   try {
     const body = BodySchema.parse(await request.json());
-    if (!body.repositoryId) throw new Error("A registered live repository is required.");
-    const descriptor = await getRegisteredRuntime(body.repositoryId);
+    const campaignSession = getSession(body.campaignId);
+    if (!campaignSession) {
+      return NextResponse.json({ error: "Unknown campaign id." }, { status: 404 });
+    }
+    if (!campaignSession.repositoryId || campaignSession.runtimeMode !== "live") {
+      throw new Error("This campaign does not have a registered live repository.");
+    }
+    if (campaignSession.contributionSessionId) {
+      throw new Error("A contribution has already been selected for this campaign.");
+    }
+
+    const descriptor = await getRegisteredRuntime(campaignSession.repositoryId);
     if (!descriptor?.repositoryRoot) throw new Error("Live repository workspace is unavailable.");
     const runtime = createRepoQuestRuntime({
       mode: "live",
-      engineerId: body.engineerId,
+      engineerId: DEFAULT_ENGINEER_ID,
       repositoryId: descriptor.repositoryId,
       repositoryRoot: descriptor.repositoryRoot,
       repositoryName: descriptor.repositoryName,
     });
-    const identity = await runtime.repository.getRepositoryIdentity();
-    const [index, documents] = await Promise.all([
-      runtime.repository.scanRepository(),
-      runtime.repository.readDocuments(),
-    ]);
-    const campaign = aiAvailable()
-      ? await runtime.agent.generateCampaign({ repository: identity, index, documents })
-      : buildHeuristicExternalCampaign(identity.name, index, documents);
-    const contribution = await new DefaultContributionService(runtime).startMission({
-      mission: missionFromCampaign(campaign),
+    const mission = missionFromCampaign(campaignSession.campaign, body.candidateId);
+    const service = new DefaultContributionService(runtime);
+    const started = await service.startMission({
+      mission,
     });
-    return NextResponse.json({ campaign, contribution });
+    const contribution = await service.beginImplementation({ sessionId: started.session.id });
+    campaignSession.contributionSessionId = contribution.session.id;
+    saveSession(campaignSession);
+
+    return NextResponse.json({ contribution, mission });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to start contribution." },

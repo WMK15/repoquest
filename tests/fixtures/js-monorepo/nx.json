@@ -1,0 +1,5 @@
+{
+  "targetDefaults": {
+    "test": { "dependsOn": ["^build"] }
+  }
+}

@@ -30,11 +30,13 @@ const KIND_BADGES: Record<KnowledgeDoc["kind"], string> = {
 export function DocumentationArchive({
   docs,
   campaignId,
+  onOpenDocument,
 }: {
   docs: KnowledgeDoc[];
   campaignId?: string | null;
+  onOpenDocument?: (path: string) => void;
 }) {
-  const [mobileExpanded, setMobileExpanded] = useState(true);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   const [openDoc, setOpenDoc] = useState<KnowledgeDoc | null>(null);
   const [loaded, setLoaded] = useState<{ path: string; content: string } | null>(null);
 
@@ -69,7 +71,7 @@ export function DocumentationArchive({
             onClick={() => setOpenDoc(null)}
           >
             <div
-              className="rq-panel flex max-h-[min(42rem,calc(100vh-3rem))] w-[min(58rem,calc(100vw-2rem))] flex-col overflow-hidden"
+              className="rq-panel flex max-h-[min(42rem,calc(100dvh-3rem))] w-[min(58rem,calc(100vw-2rem))] flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="sticky top-0 z-10 flex shrink-0 items-start justify-between gap-4 border-b border-line bg-surface-strong/90 px-5 py-4 backdrop-blur sm:px-6 sm:py-5">
@@ -135,6 +137,7 @@ export function DocumentationArchive({
         <button
           type="button"
           onClick={() => setMobileExpanded((expanded) => !expanded)}
+          aria-expanded={mobileExpanded}
           className="shrink-0 rounded border border-line px-2 py-1 font-mono text-[0.6rem] uppercase tracking-wider text-muted hover:border-primary/50 hover:text-primary md:hidden"
         >
           {mobileExpanded ? "Hide" : `${docs.length} files`}
@@ -148,7 +151,10 @@ export function DocumentationArchive({
         {docs.map((doc) => (
           <button
             key={doc.path}
-            onClick={() => setOpenDoc(doc)}
+            onClick={() => {
+              setOpenDoc(doc);
+              onOpenDocument?.(doc.path);
+            }}
             className="rq-hover-card group min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-left shadow-sm hover:border-primary/60"
             title={doc.summary}
           >

@@ -3,24 +3,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import type {
-  FixResult,
   InvestigationEvent,
-  InvestigationResult,
   NodeStatus,
   RepositoryCampaign,
 } from "@/lib/campaign/types";
 import { ArchitectureMap, type MapOverrides } from "./architecture-map";
 import { BootSequence } from "./boot-sequence";
 import { BriefingScreen } from "./briefing-screen";
+import { CandidatePicker } from "./candidate-picker";
 import { ChatWindow } from "./chat-window";
-import { CodeEvidencePanel } from "./code-evidence-panel";
 import { CompletionScreen } from "./completion-screen";
 import { ContributionWorkspace } from "./contribution-workspace";
 import { DocumentationArchive } from "./documentation-archive";
 import { ExplorationPanel } from "./exploration-panel";
 import { InvestigationActivity } from "./investigation-activity";
 import { LandingScreen } from "./landing-screen";
-import { MissionPanel } from "./mission-panel";
 import { NodeDetailsDrawer } from "./node-details-drawer";
 import { UnderstandingMeter } from "./understanding-meter";
 import type { FeatureStatus, RuntimeCapabilities } from "@/lib/repoquest/adapters/types";
@@ -36,11 +33,6 @@ type UiStage =
   | "scanning"
   | "briefing"
   | "exploring"
-  | "mapped"
-  | "investigating"
-  | "suspects"
-  | "fix-ready"
-  | "fixing"
   | "complete";
 
 const UNDERSTANDING: Record<UiStage, number> = {
@@ -48,25 +40,7 @@ const UNDERSTANDING: Record<UiStage, number> = {
   scanning: 12,
   briefing: 25,
   exploring: 25,
-  mapped: 42,
-  investigating: 58,
-  suspects: 58,
-  "fix-ready": 88,
-  fixing: 88,
   complete: 100,
-};
-
-const STAGE_LABELS: Record<UiStage, string> = {
-  landing: "Landing",
-  scanning: "Repository scan",
-  briefing: "Mission briefing",
-  exploring: "Exploring the territory",
-  mapped: "Architecture mapped",
-  investigating: "Investigation running",
-  suspects: "Identify the fault",
-  "fix-ready": "Fix prepared",
-  fixing: "Deploying fix",
-  complete: "System restored",
 };
 
 type ContributionUpdate = {
@@ -86,19 +60,17 @@ export function CampaignShell() {
   const [startError, setStartError] = useState<string | null>(null);
   const [bootFeed, setBootFeed] = useState<string[] | undefined>(undefined);
   const [aiUsed, setAiUsed] = useState(false);
-  const [investigation, setInvestigation] = useState<InvestigationResult | null>(null);
   const [feed, setFeed] = useState<InvestigationEvent[]>([]);
-  const [scanningNodeId, setScanningNodeId] = useState<string | null>(null);
-  const [fixResult] = useState<(FixResult & { testSummary?: string }) | null>(null);
-  const [fixError, setFixError] = useState<string | null>(null);
   const [contribution, setContribution] = useState<ContributionUpdate | null>(null);
   const [contributionMission, setContributionMission] = useState<ContributionMission | null>(null);
+  const [contributionError, setContributionError] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [exploredIds, setExploredIds] = useState<string[]>([]);
+  const [readDocumentPaths, setReadDocumentPaths] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const startedAtRef = useRef<number>(0);
   const [durationSeconds, setDurationSeconds] = useState(0);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const mainRef = useRef<HTMLDivElement>(null);
 
   const currentRegionId =
@@ -108,19 +80,8 @@ export function CampaignShell() {
   const externalExplorationDone = Boolean(
     campaign && exploredIds.length === campaign.nodes.length
   );
-  const externalContributionAvailable = Boolean(
-    contribution &&
-      contribution.session.stage !== "understanding" &&
-      contribution.session.stage !== "investigating"
-  );
-
   useEffect(() => {
-    const timers = timersRef.current;
-    return () => timers.forEach(clearTimeout);
-  }, []);
-
-  useEffect(() => {
-    if ((stage === "mapped" || stage === "exploring") && mainRef.current) {
+    if (stage === "exploring" && mainRef.current) {
       gsap.fromTo(
         mainRef.current,
         { opacity: 0, y: 12 },
@@ -128,10 +89,6 @@ export function CampaignShell() {
       );
     }
   }, [stage]);
-
-  const schedule = useCallback((fn: () => void, ms: number) => {
-    timersRef.current.push(setTimeout(fn, ms));
-  }, []);
 
   const beginExternal = useCallback(
     async (repoInput: string) => {
@@ -167,8 +124,6 @@ export function CampaignShell() {
               setCampaign(msg.campaign);
               setCampaignId(msg.campaignId);
               setAiUsed(Boolean(msg.aiGenerated));
-              setContribution(msg.contribution ?? null);
-              setContributionMission(msg.contributionMission ?? null);
               setStartReady(true);
             } else if (msg.type === "error") {
               throw new Error(msg.error);
@@ -195,54 +150,88 @@ export function CampaignShell() {
             {
               type: "finding",
               nodeId,
-              message: `${node.gameLabel} understood — +15 XP`,
+              message: `${node.gameLabel} explored — +15 XP`,
             },
           ]);
         }
       }
-      if (contribution) {
-        fetch(`/api/contributions/${contribution.session.id}/explore`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nodeId }),
-        })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data) setContribution(data);
-          })
-          .catch(() => {});
-      }
     },
-    [campaign, contribution]
+    [campaign]
   );
 
-  const beginLiveContribution = useCallback(() => {
-    if (!contribution || busy) return;
+  const selectContribution = useCallback((candidateId?: string) => {
+    if (!campaignId || busy) return;
     setBusy(true);
-    fetch(`/api/contributions/${contribution.session.id}/begin-implementation`, {
+    setContributionError(null);
+    fetch("/api/contributions/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify({ campaignId, candidateId }),
     })
       .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error ?? "Could not start contribution.");
-        return r.json();
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "Could not start contribution.");
+        return data;
       })
       .then((data) => {
-        setContribution(data);
+        setContribution(data.contribution);
+        setContributionMission(data.mission);
       })
       .catch((error) => {
-        setFeed((f) => [
-          ...f,
-          {
-            type: "finding",
-            nodeId: contribution.session.relevantNodeIds[0] ?? "repository",
-            message: error instanceof Error ? error.message : "Could not start contribution.",
-          },
-        ]);
+        setContributionError(
+          error instanceof Error ? error.message : "Could not start contribution."
+        );
       })
       .finally(() => setBusy(false));
-  }, [busy, contribution]);
+  }, [busy, campaignId]);
+
+  const resetCampaign = useCallback(() => {
+    if (resetting) return;
+    setResetting(true);
+    fetch("/api/campaign/reset", { method: "POST" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error((await response.json()).error ?? "Reset failed.");
+        return response.json();
+      })
+      .then(() => {
+        setStage("landing");
+        setCampaign(null);
+        setCampaignId(null);
+        setStartReady(false);
+        setStartError(null);
+        setBootFeed(undefined);
+        setAiUsed(false);
+        setFeed([]);
+        setContribution(null);
+        setContributionMission(null);
+        setContributionError(null);
+        setSelectedNodeId(null);
+        setExploredIds([]);
+        setReadDocumentPaths([]);
+        setDurationSeconds(0);
+      })
+      .catch((error) => {
+        setContributionError(error instanceof Error ? error.message : "Reset failed.");
+      })
+      .finally(() => setResetting(false));
+  }, [resetting]);
+
+  const updateContribution = useCallback((update: ContributionUpdate) => {
+    setContribution(update);
+    const sessionId = update.session.id;
+    const verified = update.profile.verifiedContributions.some(
+      (item) => item.sessionId === sessionId
+    );
+    const masteryRecorded = update.profile.completedMissions.some(
+      (item) => item.sessionId === sessionId
+    );
+    if (update.session.verification?.passed && verified && masteryRecorded) {
+      setDurationSeconds(
+        Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000))
+      );
+      setStage("complete");
+    }
+  }, []);
 
   const understanding = (() => {
     if (campaign && (stage === "exploring" || stage === "complete")) {
@@ -275,76 +264,41 @@ export function CampaignShell() {
     statuses: statusOverrides,
   };
 
-  const interaction = (() => {
-    if (!campaign) return null;
-    if (stage === "fix-ready" || stage === "fixing") {
-      return (
-        <div>
-          {investigation && (
-            <CodeEvidencePanel
-              investigation={investigation}
-              deploying={stage === "fixing"}
-            />
-          )}
-          {contribution && contributionMission && (
-            <div className="mt-4">
-              <ContributionWorkspace
-                contribution={contribution}
-                mission={contributionMission}
-                repositorySummary={campaign.summary}
-                onUpdate={setContribution}
-                onCompleted={() => {
-                  setDurationSeconds(
-                    Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000))
-                  );
-                  schedule(() => setStage("complete"), 1400);
-                }}
-              />
-            </div>
-          )}
-          {fixError && (
-            <div className="mt-3 rounded-md border border-danger/40 bg-danger/10 p-3" role="alert">
-              <p className="rq-kicker !text-danger">Fix did not verify</p>
-              <pre className="mt-1 max-h-32 overflow-auto font-mono text-[0.65rem] text-muted">{fixError}</pre>
-            </div>
-          )}
-        </div>
-      );
-    }
-    return null;
-  })();
-
   const leftPanel = campaign ? (
     <ExplorationPanel
       campaign={campaign}
       exploredIds={exploredIds}
       currentRegionId={currentRegionId}
       onFocusRegion={setSelectedNodeId}
-      onBeginContribution={beginLiveContribution}
-      contributionAvailable={externalContributionAvailable}
-      beginningContribution={busy}
     />
   ) : null;
 
   const liveContributionPanel =
-    campaign && contribution && contributionMission && externalContributionAvailable ? (
+    campaign && contribution && contributionMission ? (
       <ContributionWorkspace
         contribution={contribution}
         mission={contributionMission}
         repositorySummary={campaign.summary}
-        onUpdate={setContribution}
-        onCompleted={() => {
-          setDurationSeconds(
-            Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000))
-          );
-          setStage("complete");
-        }}
+        onUpdate={updateContribution}
+        onCompleted={() => {}}
       />
     ) : null;
 
+  const candidatePanel =
+    campaign && externalExplorationDone && !contribution ? (
+      <CandidatePicker
+        campaign={campaign}
+        busy={busy}
+        error={contributionError}
+        onSelect={selectContribution}
+      />
+    ) : null;
+
+  const actionPanel = liveContributionPanel ?? candidatePanel;
+
   const mobilePanel = campaign
-    ? liveContributionPanel && externalExplorationDone
-      ? liveContributionPanel
+    ? actionPanel && externalExplorationDone
+      ? actionPanel
       : leftPanel
     : null;
 
@@ -376,14 +330,14 @@ export function CampaignShell() {
                 </p>
               ) : (
                 <p className="hidden font-mono text-[0.6rem] uppercase tracking-widest text-muted sm:block">
-                  Verified campaign
+                  Detector-backed map
                 </p>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-5">
               <UnderstandingMeter value={understanding} />
               <p className="hidden font-mono text-xs text-muted md:block">
-                DOCS {campaign.knowledgeArchive.length}/{campaign.knowledgeArchive.length}
+                DOCS {readDocumentPaths.length}/{campaign.knowledgeArchive.length}
               </p>
             </div>
           </header>
@@ -416,31 +370,45 @@ export function CampaignShell() {
             </div>
 
             <div className="hidden min-h-0 lg:block">
-              {liveContributionPanel ?? (
+              {actionPanel ?? (
                 <InvestigationActivity
                   events={feed}
-                  idle={stage === "mapped" || stage === "exploring"}
+                  idle={stage === "exploring"}
                 />
               )}
             </div>
           </div>
 
           <div className="shrink-0">
-            <DocumentationArchive docs={campaign.knowledgeArchive} campaignId={campaignId} />
+            <DocumentationArchive
+              docs={campaign.knowledgeArchive}
+              campaignId={campaignId}
+              onOpenDocument={(path) =>
+                setReadDocumentPaths((paths) =>
+                  paths.includes(path) ? paths : [...paths, path]
+                )
+              }
+            />
           </div>
         </div>
       )}
 
-      {stage === "complete" && fixResult && (
+      {stage === "complete" && campaign && contribution && contributionMission && (
         <CompletionScreen
-          fixResult={fixResult}
+          repositoryName={campaign.repositoryName}
+          mission={contributionMission}
+          contribution={contribution}
+          exploredCount={exploredIds.length}
+          documentsRead={readDocumentPaths.length}
           durationSeconds={durationSeconds}
-          resetting={false}
-          onReset={() => {}} // todo
+          resetting={resetting}
+          onReset={resetCampaign}
         />
       )}
 
-      {campaignId && stage !== "scanning" && <ChatWindow campaignId={campaignId} />}
+      {campaignId && stage !== "scanning" && stage !== "complete" && (
+        <ChatWindow campaignId={campaignId} />
+      )}
     </div>
   );
 }

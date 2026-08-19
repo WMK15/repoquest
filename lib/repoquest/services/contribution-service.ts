@@ -241,6 +241,9 @@ export class DefaultContributionService implements ContributionService {
   async generatePlan(raw: z.input<typeof MissionOperationInputSchema>) {
     const input = MissionOperationInputSchema.parse(raw);
     const session = await this.requireSession(input.sessionId);
+    if (this.runtime.features["implementation-plan"] !== "supported") {
+      throw new Error("Implementation plan generation is unavailable while the live agent is degraded.");
+    }
     if (input.mission.id !== session.missionId) throw new Error("Mission does not match session.");
     const profile = (await this.view(session)).profile;
     const implementationPlan = await this.implementation.generatePlan({
@@ -324,6 +327,9 @@ export class DefaultContributionService implements ContributionService {
   async verifyContribution(raw: z.input<typeof SessionInputSchema>) {
     const input = SessionInputSchema.parse(raw);
     const session = await this.requireSession(input.sessionId);
+    if (session.stage !== "verifying" && session.stage !== "failed") {
+      throw new Error("Verification can only run after an approved patch has been applied.");
+    }
     const events = await this.scopedEvents(session);
     const verification = await this.verification.verify(session, events);
     const withVerification = ContributionSessionSchema.parse({ ...session, verification });

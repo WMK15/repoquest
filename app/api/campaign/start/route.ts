@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { buildHeuristicExternalCampaign } from "@/lib/campaign/external-campaign";
+import { analyzeRepository } from "@/lib/analysis/analyze-repository";
+import { buildAnalysisCampaign } from "@/lib/campaign/analysis-campaign";
 import { saveSession } from "@/lib/campaign/session-store";
-import type { CampaignSession, RepositoryCampaign } from "@/lib/campaign/types";
-import { aiAvailable } from "@/lib/agent/client";
+import {
+  RepositoryCampaignSchema,
+  type CampaignSession,
+} from "@/lib/campaign/types";
 import { runMappingPipeline } from "@/lib/agent/subagents";
 import { readKnowledgeArchive } from "@/lib/repository/read-markdown";
 import { scanRepo } from "@/lib/repository/scan-files";
 import { cloneGitHubRepo, openLocalRepo } from "@/lib/repository/workspace";
 import { createRepoQuestRuntime } from "@/lib/repoquest/adapters/create-runtime";
 import { registerRuntime } from "@/lib/repoquest/adapters/runtime-registry";
-import { DefaultContributionService } from "@/lib/repoquest/services/contribution-service";
-import {
-  DEFAULT_ENGINEER_ID,
-  missionFromCampaign,
-} from "@/lib/repoquest/services/runtime-service";
+import { DEFAULT_ENGINEER_ID } from "@/lib/repoquest/services/runtime-service";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +59,7 @@ async function startExternalCampaign(repoUrl: string, forceDeterministic: boolea
           message: isLocal ? `Mounting ${repoUrl}…` : `Cloning ${repoUrl}…`,
         });
         const workspace = isLocal
-          ? openLocalRepo(repoUrl.replace(/^~/, process.env.HOME ?? "~"))
+          ? await openLocalRepo(repoUrl.replace(/^~/, process.env.HOME ?? "~"))
           : await cloneGitHubRepo(repoUrl);
 
         const [scan, docs] = await Promise.all([
@@ -68,17 +67,50 @@ async function startExternalCampaign(repoUrl: string, forceDeterministic: boolea
           readKnowledgeArchive(workspace.root),
         ]);
 
+        send({
+          type: "event",
+          agent: "system",
+          message: `Repository scanned — ${scan.totalFiles} files and ${docs.length} readable documents`,
+        });
+        send({
+          type: "event",
+          agent: "cartographer",
+          message: "Repository analysis started — running architecture, data, operations, and workspace detectors",
+        });
+        const analysis = await analyzeRepository(workspace.root, scan);
+        send({
+          type: "event",
+          agent: "cartographer",
+          message: `Detectors complete — ${analysis.detectorIds.length} detectors produced ${analysis.evidence.length} evidence claims`,
+          detail: `${analysis.components.length} components · ${analysis.relationships.length} relationships · ${analysis.flows.length} flows`,
+        });
+        if (analysis.warnings.length > 0) {
+          send({
+            type: "event",
+            agent: "system",
+            message: `Analysis completed with ${analysis.warnings.length} coverage warning${analysis.warnings.length === 1 ? "" : "s"}`,
+            detail: analysis.warnings.slice(0, 3).join(" · "),
+          });
+        }
+
         const { campaign, aiGenerated } = forceDeterministic
           ? {
-              campaign: buildHeuristicExternalCampaign(workspace.repoName, scan, docs),
+              campaign: buildAnalysisCampaign(workspace.repoName, analysis, docs),
               aiGenerated: false,
             }
-          : await runMappingPipeline(workspace.repoName, workspace.root, scan, docs, (event) =>
-              send({ type: "event", ...event })
+          : await runMappingPipeline(
+              workspace.repoName,
+              workspace.root,
+              scan,
+              docs,
+              (event) => send({ type: "event", ...event }),
+              analysis
             );
 
-        const repositoryId = `workspace:${workspace.owner}/${workspace.repoName}`;
-        const runtime = createRepoQuestRuntime({
+        const validatedCampaign = RepositoryCampaignSchema.parse(campaign);
+
+        const repositoryId = `workspace:${workspace.identity}`;
+        createRepoQuestRuntime({
           mode: "live",
           engineerId: DEFAULT_ENGINEER_ID,
           repositoryId,
@@ -91,18 +123,13 @@ async function startExternalCampaign(repoUrl: string, forceDeterministic: boolea
           repositoryName: workspace.repoName,
           repositoryRoot: workspace.root,
         });
-        const contributionMission = missionFromCampaign(campaign);
-        const contribution = await new DefaultContributionService(runtime).startMission({
-          mission: contributionMission,
-        });
         const session: CampaignSession = {
           id: crypto.randomUUID(),
-          campaign,
+          campaign: validatedCampaign,
           stage: "mapped",
           aiGenerated,
           startedAt: Date.now(),
           workspaceRoot: workspace.root,
-          contributionSessionId: contribution.session.id,
           runtimeMode: "live",
           repositoryId,
         };
@@ -111,10 +138,8 @@ async function startExternalCampaign(repoUrl: string, forceDeterministic: boolea
         send({
           type: "complete",
           campaignId: session.id,
-          campaign,
+          campaign: validatedCampaign,
           aiGenerated,
-          contribution,
-          contributionMission,
           sourceFiles: scan.sourceFiles.length,
           markdownFiles: scan.markdownFiles.length,
         });

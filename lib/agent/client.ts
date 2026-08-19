@@ -2,8 +2,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { RepositoryCampaignSchema, type RepositoryCampaign } from "../campaign/types";
 import type { MarkdownDocument } from "../repository/read-markdown";
-import { readRepoFile } from "../repository/paths";
-import { CAMPAIGN_SYSTEM_PROMPT, INVESTIGATION_SYSTEM_PROMPT } from "./prompts";
+import { INVESTIGATION_SYSTEM_PROMPT } from "./prompts";
 
 const AI_TIMEOUT_MS = 45_000;
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4.1";

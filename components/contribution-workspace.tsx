@@ -291,6 +291,8 @@ export function ContributionWorkspace({
             description="Generate a bounded plan from the traced flow, relevant source, documentation, and engineer memory."
             action="Generate plan"
             busy={busy}
+            disabled={contribution.features["implementation-plan"] !== "supported"}
+            unavailableMessage="Implementation plans need the configured live agent; generation is disabled while that feature is degraded."
             onAction={() => request("plan", { mission, repositorySummary })}
           />
         )}
@@ -363,6 +365,38 @@ export function ContributionWorkspace({
             unavailableMessage="This runtime intentionally does not execute arbitrary live repository commands."
             onAction={() => request("verify")}
           />
+        )}
+
+        {session.stage === "failed" && session.verification && (
+          <div className="min-w-0 rounded-lg border border-danger/40 bg-danger/10 p-3">
+            <p className="rq-kicker !text-danger">Verification failed</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              Fix the failing command, then retry verification.
+            </p>
+            <pre className="rq-code mt-3 max-h-72 max-w-full overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5">
+              <code>{session.verification.output || `${session.verification.command} exited with ${session.verification.exitCode}.`}</code>
+            </pre>
+            <div className="mt-3 space-y-2">
+              {session.verification.criteria
+                .filter((criterion) => !criterion.passed)
+                .map((criterion) => (
+                  <div key={criterion.id} className="rounded border border-danger/30 bg-surface-strong p-2 text-xs">
+                    <p className="break-words font-semibold text-foreground">{criterion.description}</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words leading-5 text-muted">
+                      {criterion.evidence}
+                    </p>
+                  </div>
+                ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => request("verify")}
+              disabled={busy || !contribution.capabilities.canRunTests}
+              className="rq-cta mt-3 w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {busy ? "Working…" : "Retry verification"}
+            </button>
+          </div>
         )}
 
         {session.stage === "completed" && session.verification?.passed && !masteryRecorded && (
